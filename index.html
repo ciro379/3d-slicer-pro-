@@ -12,7 +12,7 @@
 
 <style>
 body{margin:0;background:#020617;color:white;font-family:sans-serif;display:flex;height:100vh}
-.sidebar{width:300px;background:#0f172a;padding:10px;overflow:auto}
+.sidebar{display:none}
 .viewer{flex:1}
 button,input,select{width:100%;margin-top:8px;padding:8px;border:none;border-radius:8px}
 button{background:cyan;cursor:pointer}
@@ -67,7 +67,7 @@ h2{margin-top:10px}
 let scene=new THREE.Scene();
 let camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
 let renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth-300,window.innerHeight);
+renderer.setSize(window.innerWidth,window.innerHeight);
 document.getElementById("viewer").appendChild(renderer.domElement);
 
 let controls=new THREE.OrbitControls(camera,renderer.domElement);
