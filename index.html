@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Slicer PRO</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/STLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/TransformControls.js"></script>
+
+<style>
+body{margin:0;background:#020617;color:white;font-family:sans-serif;display:flex;height:100vh}
+.sidebar{width:300px;background:#0f172a;padding:10px;overflow:auto}
+.viewer{flex:1}
+button,input,select{width:100%;margin-top:8px;padding:8px;border:none;border-radius:8px}
+button{background:cyan;cursor:pointer}
+h2{margin-top:10px}
+.stat{color:#22c55e;margin-top:5px}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<h2>🧊 STL</h2>
+<input type="file" id="file" accept=".stl">
+
+<h2>⚙️ Config</h2>
+<select id="layer">
+<option>0.1</option>
+<option>0.2</option>
+<option>0.3</option>
+</select>
+
+<input id="infill" type="number" value="20" placeholder="Infill %">
+<input id="speed" type="number" value="50" placeholder="Velocidad">
+
+<h2>🤖 IA</h2>
+<button onclick="autoConfig()">Auto configurar</button>
+<div class="stat" id="ai">IA: -</div>
+
+<h2>💰 Precio</h2>
+<input id="priceBase" type="number" value="1000">
+<button onclick="calcPrice()">Calcular</button>
+<div class="stat" id="price">$0</div>
+
+<h2>🛠️ Herramientas</h2>
+<button onclick="mode('translate')">Mover</button>
+<button onclick="mode('rotate')">Rotar</button>
+<button onclick="mode('scale')">Escalar</button>
+
+<h2>🚀 Slicing</h2>
+<button onclick="slice()">Slice</button>
+<button onclick="download()">Descargar GCODE</button>
+
+<div class="stat" id="info">Modelo: -</div>
+<div class="stat" id="time">Tiempo: -</div>
+
+<textarea id="gcode" rows="8"></textarea>
+</div>
+
+<div class="viewer" id="viewer"></div>
+
+<script>
+let scene=new THREE.Scene();
+let camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
+let renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth-300,window.innerHeight);
+document.getElementById("viewer").appendChild(renderer.domElement);
+
+let controls=new THREE.OrbitControls(camera,renderer.domElement);
+camera.position.set(0,80,120);
+
+let light=new THREE.DirectionalLight(0xffffff,1);
+scene.add(light);
+
+let grid=new THREE.GridHelper(200,20);
+scene.add(grid);
+
+let mesh, transform, geo;
+
+file.onchange=(e)=>{
+ let f=e.target.files[0];
+ let reader=new FileReader();
+ reader.onload=(ev)=>{
+  let loader=new THREE.STLLoader();
+  geo=loader.parse(ev.target.result);
+  geo.computeBoundingBox();
+
+  if(mesh) scene.remove(mesh);
+  mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x00ffff}));
+  mesh.rotation.x=-Math.PI/2;
+  scene.add(mesh);
+
+  transform=new THREE.TransformControls(camera,renderer.domElement);
+  transform.attach(mesh);
+  scene.add(transform);
+
+  info.textContent="Modelo: "+f.name;
+ };
+ reader.readAsArrayBuffer(f);
+};
+
+function mode(type){
+ if(transform) transform.setMode(type);
+}
+
+function autoConfig(){
+ let size=geo.boundingBox.getSize(new THREE.Vector3());
+ let volume=size.x*size.y*size.z;
+
+ let layer=volume>8000?0.3:0.15;
+ let infill=volume>8000?10:25;
+
+ document.getElementById("layer").value=layer;
+ document.getElementById("infill").value=infill;
+
+ ai.textContent="IA optimizada";
+}
+
+function calcPrice(){
+ let base=+priceBase.value;
+ let inf=infill.value;
+ let price=base+inf*15;
+ document.getElementById("price").textContent="$"+price;
+}
+
+function slice(){
+ let layer=parseFloat(layer.value);
+ let speedVal=speed.value;
+
+ let height=geo.boundingBox.max.y;
+ let layers=Math.floor(height/layer);
+
+ let code="; GCODE PRO\nG28\n";
+
+ for(let i=0;i<layers;i++){
+  let z=i*layer;
+  code+=`G1 Z${z.toFixed(2)} F${speedVal}\n`;
+
+  for(let x=0;x<100;x+=5){
+    code+=`G1 X${x} Y0\n`;
+    code+=`G1 X${x} Y100\n`;
+  }
+ }
+
+ let time=(layers*layer*3).toFixed(1);
+ document.getElementById("time").textContent="Tiempo: "+time+" hs";
+
+ gcode.value=code;
+}
+
+function download(){
+ let blob=new Blob([gcode.value],{type:"text/plain"});
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);
+ a.download="print.gcode";
+ a.click();
+}
+
+function animate(){
+ requestAnimationFrame(animate);
+ renderer.render(scene,camera);
+}
+animate();
+</script>
+
+</body>
+</html>
